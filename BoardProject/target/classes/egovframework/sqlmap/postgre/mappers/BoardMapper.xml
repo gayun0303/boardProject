@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.board.main.service.impl.BoardMapper">
+
+	<resultMap id="boardMap" type="egovframework.board.main.service.BoardVO">
+		<result property="boardId" column="board_id"/>
+		<result property="title" column="title"/>
+		<result property="content" column="content"/>
+		<result property="userId" column="user_id"/>
+		<result property="name" column="name"/>
+		<result property="createDate" column="create_date"/>
+		<result property="existFile" column="exist_file"/>
+		<result property="clickCount" column="click_count"/>
+		<result property="answerLevel" column="answer_level"/>
+		<result property="rootId" column="root_id"/>
+		<result property="isAnswer" column="is_answer"/>
+	</resultMap>
+
+	<insert id="insertBoard" parameterType="BoardVO">
+
+			INSERT INTO BOARD
+				( BOARD_ID
+				  , TITLE
+				  , CONTENT
+				  , USER_ID
+				  , PASSWORD
+				  , IS_ANSWER
+				  , ROOT_ID
+				  , PARENT_ID
+				  , EXIST_FILE
+				  )
+			VALUES ( #{boardId}
+				  , #{title}
+				  , #{content}
+				  , #{userId}
+				  , #{password}
+				  , #{isAnswer}
+				  , #{rootId}
+				  , #{parentId}
+				  , #{existFile}
+				  )
+
+	</insert>
+	
+	<select id="selectBoardIdsforDelete" resultType="String">
+
+		WITH RECURSIVE board_to_delete AS (
+		    SELECT BOARD_ID
+		    FROM BOARD
+		    WHERE BOARD_ID = #{boardId}
+		
+		    UNION ALL
+		
+		    SELECT B.BOARD_ID
+		    FROM BOARD B
+		    JOIN board_to_delete BT ON B.PARENT_ID = BT.BOARD_ID
+		)
+		SELECT BOARD_ID FROM BOARD
+		WHERE BOARD_ID IN (SELECT BOARD_ID FROM board_to_delete);
+
+	</select>
+
+	<update id="updateBoard">
+
+			UPDATE Board
+			SET BOARD_ID=#{boardId}
+				, TITLE=#{title}
+				, CONTENT=#{content}
+				, EXIST_FILE=#{existFile}
+			WHERE BOARD_ID=#{boardId}
+
+	</update>
+
+	<delete id="deleteBoard">
+
+			WITH RECURSIVE board_to_delete AS (
+			    SELECT BOARD_ID
+			    FROM BOARD
+			    WHERE BOARD_ID = #{boardId}
+			
+			    UNION ALL
+			
+			    SELECT B.BOARD_ID
+			    FROM BOARD B
+			    JOIN board_to_delete BT ON B.PARENT_ID = BT.BOARD_ID
+			)
+			delete from board
+			WHERE BOARD_ID IN (SELECT BOARD_ID FROM board_to_delete);
+
+	</delete>
+	
+	<select id="selectBoardAndAnswer" resultMap="boardMap">
+			 WITH RECURSIVE BOARD_HIERARCHY AS (
+			    SELECT
+			        B.BOARD_ID,
+			        B.TITLE,
+			        U.NAME AS NAME,
+			        B.CREATE_DATE,
+			        B.CLICK_COUNT,
+			        B.CONTENT,
+			        B.PARENT_ID,
+			        B.EXIST_FILE,
+			        B.ROOT_ID,
+			        0 AS ANSWER_LEVEL,
+			        B.CREATE_DATE AS ROOT_SORT_DATE,
+			        ARRAY[B.CREATE_DATE] AS SORT_PATH
+			    FROM BOARD B
+			    JOIN USERS U ON B.USER_ID = U.USER_ID
+			    WHERE B.PARENT_ID IS NULL
+			
+			    UNION ALL
+			
+			    SELECT
+			        B.BOARD_ID,
+			        B.TITLE,
+			        U.NAME AS AUTHOR,
+			        B.CREATE_DATE,
+			        B.CLICK_COUNT,
+			        B.CONTENT,
+			        B.PARENT_ID,
+			        B.EXIST_FILE,
+			        BH.ROOT_ID,
+			        BH.ANSWER_LEVEL + 1,
+			        BH.ROOT_SORT_DATE,
+			        BH.SORT_PATH || B.CREATE_DATE
+			    FROM BOARD B
+			    JOIN USERS U ON B.USER_ID = U.USER_ID
+			    JOIN BOARD_HIERARCHY BH ON B.PARENT_ID = BH.BOARD_ID
+			)
+			
+			SELECT
+			    BOARD_ID,
+			    TITLE,
+			    CONTENT,
+			    NAME,
+			    CREATE_DATE,
+			    CLICK_COUNT,
+			    EXIST_FILE,
+			    ROOT_ID,
+			    ANSWER_LEVEL
+			FROM BOARD_HIERARCHY
+			WHERE ROOT_ID = #{rootId}
+			ORDER BY ROOT_SORT_DATE DESC, SORT_PATH
+	</select>
+
+	<select id="selectBoardList" parameterType="searchVO" resultType="egovMap">
+			WITH RECURSIVE BOARD_HIERARCHY AS (
+			    SELECT
+			        B.BOARD_ID,
+			        B.TITLE,
+			        U.NAME AS NAME,
+			        B.CREATE_DATE,
+			        B.CLICK_COUNT,
+			        B.CONTENT,
+			        B.PARENT_ID,
+			        B.EXIST_FILE,
+			        B.ROOT_ID,
+			        0 AS ANSWER_LEVEL,
+			        B.CREATE_DATE AS ROOT_SORT_DATE,
+			        ARRAY[B.CREATE_DATE] AS SORT_PATH
+			    FROM BOARD B
+			    JOIN USERS U ON B.USER_ID = U.USER_ID
+			    WHERE B.PARENT_ID IS NULL
+			
+			    UNION ALL
+			
+			    SELECT
+			        B.BOARD_ID,
+			        B.TITLE,
+			        U.NAME AS AUTHOR,
+			        B.CREATE_DATE,
+			        B.CLICK_COUNT,
+			        B.CONTENT,
+			        B.PARENT_ID,
+			        B.EXIST_FILE,
+			        BH.ROOT_ID,
+			        BH.ANSWER_LEVEL + 1,
+			        BH.ROOT_SORT_DATE,
+			        BH.SORT_PATH || B.CREATE_DATE
+			    FROM BOARD B
+			    JOIN USERS U ON B.USER_ID = U.USER_ID
+			    JOIN BOARD_HIERARCHY BH ON B.PARENT_ID = BH.BOARD_ID
+			)
+			
+			SELECT
+			    BOARD_ID,
+			    TITLE,
+			    CONTENT,
+			    NAME,
+			    CREATE_DATE,
+			    CLICK_COUNT,
+			    EXIST_FILE,
+			    ROOT_ID,
+			    ANSWER_LEVEL
+			FROM BOARD_HIERARCHY
+			<if test="searchKeyword != null and searchKeyword != ''">
+		        <choose>
+		            <when test="searchType == 1">
+						WHERE NAME LIKE '%' || #{searchKeyword} || '%'
+					</when>
+		            <when test="searchType == 0">
+						WHERE TITLE LIKE '%' || #{searchKeyword} || '%'
+					</when>
+				</choose>
+			</if>
+			ORDER BY ROOT_SORT_DATE DESC, SORT_PATH
+			LIMIT #{recordCountPerPage} OFFSET #{firstIndex}
+	</select>
+
+	<select id="selectBoardListTotCnt" parameterType="searchVO" resultType="int">
+
+			SELECT COUNT(*) totcnt
+			FROM BOARD AS B
+			INNER JOIN USERS AS U
+				ON B.USER_ID = U.USER_ID
+			<if test="searchKeyword != null and searchKeyword != ''">
+		        <choose>
+		            <when test="searchType == 1">
+						AND U.NAME LIKE '%' || #{searchKeyword} || '%'
+					</when>
+		            <when test="searchType == 0">
+						AND	B.TITLE
+						LIKE '%' || #{searchKeyword} || '%'
+					</when>
+				</choose>
+			</if>
+	</select>
+	
+	<select id="selectBoard" parameterType="BoardVO" resultMap="boardMap">
+			SELECT 
+			 	B.BOARD_ID,
+			 	B.TITLE,
+			 	B.CONTENT,
+			 	U.NAME,
+			 	B.CREATE_DATE,
+			 	B.CLICK_COUNT,
+			 	B.EXIST_FILE,
+			 	B.ROOT_ID,
+			 	B.PASSWORD
+			FROM BOARD B
+			JOIN USERS U ON B.USER_ID = U.USER_ID
+			WHERE B.BOARD_ID = #{boardId}
+	</select>
+	
+	<update id="increaseClickCount" parameterType="boardVO" >
+			UPDATE BOARD
+			SET CLICK_COUNT = CLICK_COUNT + 1
+			WHERE BOARD_ID = #{boardId}		
+	</update>
+
+</mapper>

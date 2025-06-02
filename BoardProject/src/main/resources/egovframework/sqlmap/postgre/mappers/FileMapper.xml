@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="egovframework.board.main.service.impl.FileMapper">
+
+	<resultMap id="fileMap" type="egovframework.board.main.service.FileVO">
+		<result property="boardId" column="board_id"/>
+		<result property="fileId" column="file_id"/>
+		<result property="originalName" column="original_name"/>
+		<result property="filePath" column="file_path"/>
+		<result property="saveName" column="save_name"/>
+		<result property="fileSize" column="file_size"/>
+	</resultMap>
+
+	<insert id="insertFile" parameterType = "FileVO">
+		INSERT INTO FILE (
+			FILE_ID,
+			BOARD_ID,
+			ORIGINAL_NAME,
+			FILE_PATH,
+			SAVE_NAME,
+			FILE_SIZE
+		) VALUES (
+			#{fileId},
+			#{boardId},
+			#{originalName},
+			#{filePath},
+			#{saveName},
+			#{fileSize}
+		)
+	</insert>
+	
+	<select id="selectFileList" resultMap="fileMap">
+	    SELECT file_id, original_name, file_path, save_name, file_size
+	    FROM file
+	    WHERE board_id = #{boardId}
+	</select>
+	
+	<select id="existFile" resultType="boolean">
+		SELECT EXISTS (
+			SELECT 1
+			FROM FILE
+			WHERE BOARD_ID = #{boardId}
+		)
+	</select>
+	
+	<delete id="deleteFile">
+		DELETE
+		FROM FILE
+		WHERE BOARD_ID = #{boardId}
+	</delete>
+	
+	<delete id="deleteFileListById" parameterType="java.util.List">
+		DELETE FROM FILE
+		WHERE FILE_ID IN
+		<foreach collection="list" item="id" open="(" separator="," close=")">
+			#{id}
+		</foreach>
+	</delete>
+	
+	<select id="selectFileListForDelete" parameterType="java.util.List" resultMap="fileMap">
+		SELECT file_id, original_name, file_path, save_name, file_size
+		FROM FILE
+		WHERE BOARD_ID IN
+		<foreach collection="list" item="id" open="(" separator="," close=")">
+			#{id}
+		</foreach>
+	</select>
+	
+	<delete id="deleteDBFileListByBoardId" parameterType="java.util.List">
+		DELETE
+		FROM FILE
+		WHERE BOARD_ID IN
+		<foreach collection="list" item="id" open="(" separator="," close=")">
+			#{id}
+		</foreach>
+	</delete>
+
+
+</mapper>
+
